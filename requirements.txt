@@ -1,0 +1,9 @@
+# pipeline (download, parse, index)
+requests
+lxml
+pymupdf
+python-docx
+qdrant-client>=1.10
+FlagEmbedding>=1.2
+google-cloud-bigquery    # only for 03_download_bigquery.py
+tomli; python_version < "3.11"

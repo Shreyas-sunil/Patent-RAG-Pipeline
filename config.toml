@@ -1,0 +1,81 @@
+# patent-rag configuration. Edit this file, then run the tools in the order in README.md.
+
+[paths]
+corpus    = "corpus"        # corpus/standards, corpus/patents/area-*/
+manifests = "manifests"     # one SQLite manifest per download tool
+chunks    = "chunks"        # parsed output, *.jsonl
+downloads = "downloads"     # raw weekly USPTO zips (deleted after splitting unless keep_zips)
+
+# ---------------------------------------------------------------------------
+# Technology areas. A patent belongs to an area if ANY of its CPC codes starts
+# with one of the prefixes. Write prefixes without spaces: "H04W", "H01M10/42".
+# A patent matching several areas goes into the FIRST area listed.
+# ---------------------------------------------------------------------------
+[[areas]]
+name   = "wireless"
+cpc    = ["H04W", "H04L5/00", "H04B7/00"]
+target = 30000                       # stop once this many patents are saved
+
+[[areas]]
+name   = "batteries"
+cpc    = ["H01M10/42", "H01M10/44", "H01M10/46", "H01M10/48", "H02J7/00"]
+target = 25000
+
+# ---------------------------------------------------------------------------
+# USPTO Open Data Portal (data.uspto.gov). Needs a free API key:
+# sign in at data.uspto.gov -> My ODP -> API key, then
+#     export USPTO_API_KEY=xxxxxxxx
+# ---------------------------------------------------------------------------
+[uspto]
+products     = ["PTGRXML"]          # grants. Add "APPXML" for published applications.
+from_date    = "2015-01-01"         # walk weekly files newest first back to this date
+to_date      = ""                   # "" = today
+rate_per_sec = 0.5                  # weekly files are 100s of MB; be gentle
+keep_zips    = false
+
+# ---------------------------------------------------------------------------
+# Google Patents Public Data on BigQuery (non-US patents).
+# gcloud auth application-default login   (once)
+# ---------------------------------------------------------------------------
+[bigquery]
+project          = "your-gcp-project"     # billing project
+dataset          = "patent_rag"           # created if missing; holds the staging table
+countries        = ["EP", "WO", "CN", "JP", "KR", "IN", "GB", "DE", "FR"]
+english_only     = true                   # require English abstract + claims
+skip_families_with_us = true              # US members come from 02_download_uspto.py; avoids duplicates
+min_pub_date     = 20150101               # YYYYMMDD
+max_bytes_billed = 3_000_000_000_000      # hard cap; the query fails rather than exceed it
+
+# ---------------------------------------------------------------------------
+# Standards gap-filler
+# ---------------------------------------------------------------------------
+[standards]
+inventory = "inventory.csv"               # written by 01_inventory.py
+rate_per_sec = 1.0
+
+[standards.3gpp]
+releases = ["Rel-18", "Rel-17"]           # folders under 3gpp.org/ftp/Specs/latest/
+series   = ["23", "24", "36", "38"]       # e.g. 38 = NR, 36 = LTE, 23/24 = core network
+only     = []                             # optional allow-list, e.g. ["38.331", "38.300"]
+
+[standards.etsi]
+# ETSI deliverables by document number. Latest published version is fetched.
+# Examples: "TS 103 645", "EN 303 645", "TS 133 501"
+documents = []
+
+# ---------------------------------------------------------------------------
+# pipeline.py - which steps `python pipeline.py run` executes, in this order:
+# inventory -> uspto -> bigquery -> standards -> extract -> parse -> index -> check
+# ---------------------------------------------------------------------------
+[pipeline]
+inventory = true
+uspto     = true
+bigquery  = "dry-run"        # "dry-run" (report cost only), "run" (query + export, billed), "skip"
+standards = true
+extract   = true
+ocr       = false            # true = OCR scanned PDFs during extract (slow; needs ocrmypdf)
+parse     = true
+index     = true
+index_args = []              # extra flags for 07_build_index.py, e.g. ["--encode-batch", "32"]
+check_question = "beam failure recovery"   # "" = skip the final test search
+search_args = []             # extra flags for 08_search.py

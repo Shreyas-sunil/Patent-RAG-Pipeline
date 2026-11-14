@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Downloaded / generated data (keep the .keep placeholders)
+corpus/*
+!corpus/.keep
+chunks/*
+!chunks/.keep
+manifests/*
+!manifests/.keep
+downloads/
+state/
+inventory.csv
+*.log
+
+# Local secrets
+.env
